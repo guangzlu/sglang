@@ -1260,8 +1260,9 @@ class ModelRunner:
                         kvcache=self.token_to_kv_pool,
                     )
                 else:
+                    aligned_max_total_num_tokens = (self.max_total_num_tokens + 31) // 32 * 32
                     self.token_to_kv_pool_allocator = TokenToKVPoolAllocator(
-                        self.max_total_num_tokens,
+                        aligned_max_total_num_tokens,
                         dtype=self.kv_cache_dtype,
                         device=self.device,
                         kvcache=self.token_to_kv_pool,

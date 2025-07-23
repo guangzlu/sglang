@@ -967,6 +967,32 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         else:
             return out_cache_loc
 
+    #guangzhao => fixed page_size
+    def get_token_slots(self, batch_size: int, backup_state: bool = False):
+        if backup_state:
+            state = self.token_to_kv_pool_allocator.backup_state()
+
+        out_cache_loc = torch.empty(
+            batch_size, dtype=torch.int64, device=self.device
+        )
+
+        for i in range(batch_size):
+            req_pool_idx = self.reqs[i].req_pool_idx
+            if not self.req_to_token_pool.check_if_single_req_have_avaliable_token(req_pool_idx):
+                #if have no preallocated space, then allocate 32 buffers for current request
+                kv_loc = self.token_to_kv_pool_allocator.alloc(32)
+                cur_end = self.req_to_token_pool.available_token_id_for_reqs_end[req_pool_idx]
+                self.req_to_token_pool.write((req.req_pool_idx, slice(cur_end, cur_end + len(kv_loc))), kv_loc)
+                self.req_to_token_pool.init_avaliable_token_for_single_req(req.req_pool_idx, cur_end, cur_end + len(kv_loc))
+
+            out_cache_loc[i] = self.req_to_token_pool.get_free_buffer_from_preallocated(req_pool_idx)
+            self.req_to_token_pool.update_avaliable_token_start_for_single_req(req_pool_idx)
+
+        if backup_state:
+            return out_cache_loc, state
+        else:
+            return out_cache_loc
+
     def alloc_paged_token_slots_extend(
         self,
         prefix_lens: torch.Tensor,
@@ -1558,7 +1584,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
         # Allocate memory
         if self.token_to_kv_pool_allocator.page_size == 1:
-            self.out_cache_loc = self.alloc_token_slots(bs)
+            self.out_cache_loc = self.get_token_slots(bs)
         else:
             last_loc = self.req_to_token_pool.req_to_token[
                 self.req_pool_indices, self.seq_lens - 2

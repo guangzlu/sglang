@@ -491,9 +491,9 @@ class DecodePreallocQueue:
         req.req_pool_idx = req_pool_indices[0]
 
         if self.token_to_kv_pool_allocator.page_size == 1:
-            kv_loc = self.token_to_kv_pool_allocator.alloc(
-                len(req.origin_input_ids) + max(len(req.output_ids) - 1, 0)
-            )
+            aligned_kv_pool_alloc_size = 
+                ((len(req.origin_input_ids) + max(len(req.output_ids) - 1, 0)) + 31 ) // 32 * 32
+            kv_loc = self.token_to_kv_pool_allocator.alloc(aligned_kv_pool_alloc_size)
         else:
             num_tokens = len(req.origin_input_ids) + max(len(req.output_ids) - 1, 0)
             kv_loc = self.token_to_kv_pool_allocator.alloc_extend(
@@ -520,6 +520,7 @@ class DecodePreallocQueue:
         ), "KV cache is full! There is a bug in memory estimation."
 
         self.req_to_token_pool.write((req.req_pool_idx, slice(0, len(kv_loc))), kv_loc)
+        self.req_to_token_pool.init_avaliable_token_for_single_req(req.req_pool_idx, (len(req.origin_input_ids) + max(len(req.output_ids) - 1, 0)), len(kv_loc))
 
         # populate metadata
         req.fill_ids = req.origin_input_ids + req.output_ids
