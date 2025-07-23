@@ -1125,6 +1125,8 @@ class ModelRunner:
             // self.server_args.page_size
             * self.server_args.page_size
         )
+
+        self.max_total_num_tokens = self.max_total_num_tokens // 32 * 32
         # create token size for hybrid cache
         if self.is_hybrid:
             self.set_num_token_hybrid()
@@ -1260,9 +1262,8 @@ class ModelRunner:
                         kvcache=self.token_to_kv_pool,
                     )
                 else:
-                    aligned_max_total_num_tokens = (self.max_total_num_tokens + 31) // 32 * 32
                     self.token_to_kv_pool_allocator = TokenToKVPoolAllocator(
-                        aligned_max_total_num_tokens,
+                        self.max_total_num_tokens,
                         dtype=self.kv_cache_dtype,
                         device=self.device,
                         kvcache=self.token_to_kv_pool,
