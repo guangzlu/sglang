@@ -119,6 +119,20 @@ class DecodeReqToTokenPool:
     def clear(self):
         self.free_slots = list(range(self.size + self.pre_alloc_size))
 
+    def init_avaliable_token_for_single_req(self, indice, used_len, total_len):
+        self.available_token_id_for_reqs_start[indice] = used_len
+        self.available_token_id_for_reqs_end[indice] = total_len
+
+    def update_avaliable_token_start_for_single_req(self, indice):
+        self.available_token_id_for_reqs_start[indice] += 1
+
+    def check_if_single_req_have_avaliable_token(self, indice):
+        return self.available_token_id_for_reqs_start[indice] < self.available_token_id_for_reqs_end[indice]
+
+    def get_free_buffer_from_preallocated(self, indice):
+        return self.req_to_token[indice, self.available_token_id_for_reqs_start[indice]]
+
+
 
 @dataclass
 class DecodeRequest:
