@@ -982,8 +982,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
                 #if have no preallocated space, then allocate 32 buffers for current request
                 kv_loc = self.token_to_kv_pool_allocator.alloc(32)
                 cur_end = self.req_to_token_pool.available_token_id_for_reqs_end[req_pool_idx]
-                self.req_to_token_pool.write((req.req_pool_idx, slice(cur_end, cur_end + len(kv_loc))), kv_loc)
-                self.req_to_token_pool.init_avaliable_token_for_single_req(req.req_pool_idx, cur_end, cur_end + len(kv_loc))
+                self.req_to_token_pool.write((req_pool_idx, slice(cur_end, cur_end + len(kv_loc))), kv_loc)
+                self.req_to_token_pool.init_avaliable_token_for_single_req(req_pool_idx, cur_end, cur_end + len(kv_loc))
 
             out_cache_loc[i] = self.req_to_token_pool.get_free_buffer_from_preallocated(req_pool_idx)
             self.req_to_token_pool.update_avaliable_token_start_for_single_req(req_pool_idx)
@@ -1465,8 +1465,10 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
             if isinstance(self.tree_cache, ChunkCache):
                 # ChunkCache does not have eviction
+                aligned_kv_pool_alloc_size = self.req_to_token_pool.available_token_id_for_reqs_end[req.req_pool_idx]
                 token_indices = self.req_to_token_pool.req_to_token[
-                    req.req_pool_idx, : seq_lens_cpu[idx]
+                    req.req_pool_idx,
+                    : aligned_kv_pool_alloc_size,
                 ]
                 self.token_to_kv_pool_allocator.free(token_indices)
                 self.req_to_token_pool.free(req.req_pool_idx)
