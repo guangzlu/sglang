@@ -1297,7 +1297,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         self.extend_input_logprob_token_ids = extend_input_logprob_token_ids
 
         # Write to req_to_token_pool
-        if support_triton(global_server_args_dict.get("attention_backend")):
+        if support_triton(global_server_args_dict.get("attention_backend") and False):
             # TODO: some tensors can be reused for ForwardBatchInfo (e.g., extend_lens, cumsum_start)
 
             write_req_to_token_pool_triton[(bs,)](
@@ -1309,6 +1309,9 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
                 out_cache_loc,
                 self.req_to_token_pool.req_to_token.shape[1],
             )
+            for i in range(bs):
+                self.req_to_token_pool.init_avaliable_token_for_single_req(req_pool_indices[i], prefix_lens[i], seq_lens[i])
+
         else:
             pt = 0
             for i in range(bs):
@@ -1316,6 +1319,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
                     (req_pool_indices[i], slice(prefix_lens[i], seq_lens[i])),
                     out_cache_loc[pt : pt + extend_lens[i]],
                 )
+                self.req_to_token_pool.init_avaliable_token_for_single_req(req_pool_indices[i], prefix_lens[i], seq_lens[i])
                 pt += extend_lens[i]
 
         if self.model_config.is_encoder_decoder:
