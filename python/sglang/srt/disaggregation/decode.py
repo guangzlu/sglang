@@ -95,6 +95,10 @@ class DecodeReqToTokenPool:
             )
 
         self.free_slots = list(range(size + pre_alloc_size))
+        
+        self.available_token_id_for_reqs_start = [0 for _ in range(size)]
+        self.available_token_id_for_reqs_end = [0 for _ in range(size)]
+
 
     def write(self, indices, values):
         self.req_to_token[indices] = values
