@@ -824,7 +824,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
     seq_lens: torch.Tensor = None  # shape: [b], int64
     # The output locations of the KV cache
     out_cache_loc: torch.Tensor = None  # shape: [b], int64
-    new_allocated_kv_cache_buffer: List[] = None # for overlap condition usage
+    new_allocated_kv_cache_buffer: list = None # for overlap condition usage
 
     output_ids: torch.Tensor = None  # shape: [b], int64
 
