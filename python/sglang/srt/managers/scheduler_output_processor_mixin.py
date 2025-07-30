@@ -226,8 +226,9 @@ class SchedulerOutputProcessorMixin:
 
             if self.enable_overlap and req.finished():
                 # Free the one extra delayed token
-                if self.page_size == 1:
-                    self.token_to_kv_pool_allocator.free(batch.out_cache_loc[i : i + 1])
+                if self.page_size == 1 and batch.new_allocated_kv_cache_buffer[i] is not None:
+                    # For page size 1, we free the extra token in the new allocated kv cache buffer
+                    self.token_to_kv_pool_allocator.free(batch.new_allocated_kv_cache_buffer[i])
                 else:
                     # Only free when the extra token is in a new page
                     if (

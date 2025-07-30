@@ -824,6 +824,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
     seq_lens: torch.Tensor = None  # shape: [b], int64
     # The output locations of the KV cache
     out_cache_loc: torch.Tensor = None  # shape: [b], int64
+    new_allocated_kv_cache_buffer: List[] = None # for overlap condition usage
+
     output_ids: torch.Tensor = None  # shape: [b], int64
 
     # For multimodal inputs
@@ -976,6 +978,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             batch_size, dtype=torch.int64, device=self.device
         )
 
+        new_allocated_kv_cache_buffer = [None] * batch_size
+
         for i in range(batch_size):
             req_pool_idx = self.reqs[i].req_pool_idx
             if not self.req_to_token_pool.check_if_single_req_have_avaliable_token(req_pool_idx):
@@ -984,14 +988,15 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
                 cur_end = self.req_to_token_pool.available_token_id_for_reqs_end[req_pool_idx]
                 self.req_to_token_pool.write((req_pool_idx, slice(cur_end, cur_end + len(kv_loc))), kv_loc)
                 self.req_to_token_pool.init_avaliable_token_for_single_req(req_pool_idx, cur_end, cur_end + len(kv_loc))
-
+                new_allocated_kv_cache_buffer[i] = kv_loc
+            # get the free buffer from preallocated pool
             out_cache_loc[i] = self.req_to_token_pool.get_free_buffer_from_preallocated(req_pool_idx)
             self.req_to_token_pool.update_avaliable_token_start_for_single_req(req_pool_idx)
 
         if backup_state:
             return out_cache_loc, state
         else:
-            return out_cache_loc
+            return out_cache_loc, new_allocated_kv_cache_buffer
 
     def alloc_paged_token_slots_extend(
         self,
@@ -1590,7 +1595,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
         # Allocate memory
         if self.token_to_kv_pool_allocator.page_size == 1:
-            self.out_cache_loc = self.get_token_slots(bs)
+            self.out_cache_loc, self.new_allocated_kv_cache_buffer = self.get_token_slots(bs)
         else:
             last_loc = self.req_to_token_pool.req_to_token[
                 self.req_pool_indices, self.seq_lens - 2
